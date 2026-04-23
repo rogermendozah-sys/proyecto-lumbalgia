@@ -103,6 +103,21 @@ if modelo_ia is not None:
     # Esto lo muestra en la barra lateral de forma elegante
     st.sidebar.info(f"📈 IA entrenada con {total_registros} registros actuales.")
 # ----------------------------------------------
+# --- SECCIÓN DE COLABORACIÓN ---
+st.sidebar.markdown("---")
+st.sidebar.subheader("🤝 Colabora con la IA")
+st.sidebar.write(
+    "Este modelo aprende de casos reales. ¿Te gustaría que tus datos "
+    "ayuden a mejorar la precisión de este asistente médico?"
+)
+
+# El botón que lleva a tu formulario
+st.sidebar.link_button(
+    "Registrar mis datos en el estudio", 
+    "https://docs.google.com/forms/d/e/1FAIpQLScXVZ7iCF1nad67S8x2aNUK_c6v3hSRyTNT9K20m0MR-aETVg/viewform"
+)
+
+st.sidebar.caption("Nota: Los datos se recolectan de forma anónima.")
 
 # --- 4. INTERFAZ DE USUARIO (DASHBOARD) ---
 st.title("🏥 Asistente de Salud Lumbar - IA")
