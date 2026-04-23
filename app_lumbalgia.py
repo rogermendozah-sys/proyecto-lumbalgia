@@ -84,7 +84,7 @@ def entrenar_modelo():
         X = df_clean[['imc_calc', 'nivel_estres']]
         y = df_clean['label']
         
-        modelo = DecisionTreeClassifier(max_depth=2, min_samples_leaf=5, random_state=42)
+        modelo = DecisionTreeClassifier(max_depth=3, min_samples_split=10, min_samples_leaf=5, random_state=42)
         modelo.fit(X, y)
         return modelo
     except Exception as e:
