@@ -94,6 +94,16 @@ def entrenar_modelo():
 # Inicializar el modelo globalmente
 modelo_ia = entrenar_modelo()
 
+if modelo_ia is not None:
+    # Usamos la misma URL que ya tienes arriba
+    url_datos = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQC0W8wtAAKG-qj0BppHi_Qu_LtuvjQ5pOCYDYQdRdwD01mCSjIH8tLn3-KyP8OnrYVEWXV2O4rrVmx/pub?gid=2099638101&single=true&output=csv"
+    df_temp = pd.read_csv(url_datos)
+    total_registros = len(df_temp)
+    
+    # Esto lo muestra en la barra lateral de forma elegante
+    st.sidebar.info(f"📈 IA entrenada con {total_registros} registros actuales.")
+# ----------------------------------------------
+
 # --- 4. INTERFAZ DE USUARIO (DASHBOARD) ---
 st.title("🏥 Asistente de Salud Lumbar - IA")
 
