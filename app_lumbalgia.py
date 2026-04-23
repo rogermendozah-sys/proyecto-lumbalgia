@@ -119,14 +119,17 @@ st.sidebar.link_button(
 
 st.sidebar.caption("Nota: Los datos se recolectan de forma anónima.")
 
-# --- CONTADOR DE VISITAS DISCRETO ---
+# --- CONTADOR DE VISITAS MEJORADO ---
 st.sidebar.markdown("---")
-# Usamos un componente de imagen que se conecta a un contador gratuito
-# Reemplaza 'proyecto_lumbalgia_roger' con cualquier nombre único
-st.sidebar.markdown(
-    '![Visitas](https://visit-counter.vercel.app/counter.png?page=proyecto_lumbalgia_roger)'
-)
-st.sidebar.caption("Usuarios que han consultado este asistente.")
+
+# Esto crea una métrica visualmente atractiva
+if 'visitas' not in st.session_state:
+    st.session_state.visitas = 1
+else:
+    st.session_state.visitas += 1
+
+st.sidebar.metric(label="👥 Consultas en esta sesión", value=st.session_state.visitas)
+st.sidebar.caption("Gracias por usar el asistente médico.")
 
 # --- 4. INTERFAZ DE USUARIO (DASHBOARD) ---
 st.title("🏥 Asistente de Salud Lumbar - IA")
