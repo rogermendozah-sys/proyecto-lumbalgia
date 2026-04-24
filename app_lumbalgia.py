@@ -5,7 +5,7 @@ from fpdf import FPDF
 import datetime
 
 # --- 1. CONFIGURACIÓN DE LA PÁGINA ---
-st.set_page_config(page_title="Health Analytics - Roger Mendoza", layout="wide")
+st.set_page_config(page_title="Health Analytics", layout="wide")
 
 # --- 2. FUNCIÓN PARA GENERAR EL REPORTE PDF ---
 def crear_pdf(nombre, edad, imc, riesgo, prob, agua, proteina, huesos, consejos):
@@ -26,7 +26,7 @@ def crear_pdf(nombre, edad, imc, riesgo, prob, agua, proteina, huesos, consejos)
     pdf.cell(190, 10, f'EDAD: {edad} años | FECHA: {datetime.date.today()}', 0, 1, 'L')
     pdf.ln(5)
 
-    # Tabla de métricas (Como la báscula)
+    # Tabla de métricas
     pdf.set_fill_color(240, 240, 240)
     pdf.set_font('Arial', 'B', 11)
     pdf.cell(47, 10, 'IMC', 1, 0, 'C', True)
@@ -46,7 +46,7 @@ def crear_pdf(nombre, edad, imc, riesgo, prob, agua, proteina, huesos, consejos)
     pdf.set_font('Arial', 'B', 14)
     color = (200, 0, 0) if riesgo == "ALTO" else (0, 150, 0)
     pdf.set_text_color(*color)
-    pdf.cell(190, 15, f'DIAGNOSTICO DE RIESGO: {riesgo}', 1, 1, 'C')
+    pdf.cell(190, 15, f'DIAGNOSTICO DE RIESGO: {riesgo} (Confianza: {prob:.1f}%)', 1, 1, 'C')
     
     pdf.ln(10)
     pdf.set_text_color(0, 0, 0)
@@ -58,140 +58,144 @@ def crear_pdf(nombre, edad, imc, riesgo, prob, agua, proteina, huesos, consejos)
         
     return pdf.output(dest='S').encode('latin-1')
 
-# --- 3. ENTRENAMIENTO DEL MODELO (IA) ---
+# --- 3. ENTRENAMIENTO DEL MODELO (CRISP-DM) ---
 @st.cache_data
 def entrenar_modelo():
     try:
         url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQC0W8wtAAKG-qj0BppHi_Qu_LtuvjQ5pOCYDYQdRdwD01mCSjIH8tLn3-KyP8OnrYVEWXV2O4rrVmx/pub?gid=2099638101&single=true&output=csv"
         df = pd.read_csv(url)
+        df = df.drop_duplicates()
         
-        # Limpiar nombres de columnas
+        # Limpieza estándar: todo a minúsculas y sin espacios raros
         df.columns = [c.strip().lower() for c in df.columns]
-        
-        # Identificar columnas por palabras clave
-        col_peso = [c for c in df.columns if 'peso' in c][0]
-        col_talla = [c for c in df.columns if 'estatura' in c or 'talla' in c or 'cms' in c][0]
-        col_estres = [c for c in df.columns if 'estres' in c or 'estrés' in c][0]
-        col_target = [c for c in df.columns if 'dolor' in c or 'target' in c][0]
 
-        # Crear variables calculadas
-        df['imc_calc'] = pd.to_numeric(df[col_peso], errors='coerce') / ((pd.to_numeric(df[col_talla], errors='coerce')/100)**2)
-        df['nivel_estres'] = pd.to_numeric(df[col_estres], errors='coerce').fillna(3)
-        df['label'] = df[col_target].apply(lambda x: 1 if 'sí' in str(x).lower() or 'si' in str(x).lower() else 0)
+        # --- FUNCIÓN INTELIGENTE PARA ENCONTRAR COLUMNAS ---
+        def localizar(keyword):
+            for c in df.columns:
+                if keyword in c:
+                    return c
+            return None
+
+        # Localizamos los nombres reales de las columnas en tu Sheets
+        c_peso = localizar('peso')
+        c_talla = localizar('estatura') or localizar('talla')
+        c_estres = localizar('estres') or localizar('estrés')
+        c_genero = localizar('género') or localizar('genero')
+        c_pausas = localizar('pausas')
+        c_horas = localizar('horas')
+        c_silla = localizar('silla')
+        c_target = localizar('dolor') or localizar('molestia')
+
+        # --- PROCESAMIENTO DE DATOS ---
+        df['imc_calc'] = pd.to_numeric(df[c_peso], errors='coerce') / ((pd.to_numeric(df[c_talla], errors='coerce')/100)**2)
+        df['nivel_estres'] = pd.to_numeric(df[c_estres], errors='coerce').fillna(3)
         
-        # Entrenar modelo
+        # Encodings con .get() para evitar errores si el texto varía un poco
+        df['genero_num'] = df[c_genero].map({'Masculino': 0, 'Femenino': 1, 'Otro': 2}).fillna(0)
+        df['pausas_num'] = df[c_pausas].map({'Nunca': 0, 'Ocasionalmente': 1, 'Diariamente': 2}).fillna(1)
+        df['horas_num'] = df[c_horas].map({'1-4': 1, '4-6': 2, '6-8': 3, 'Más de 8': 4}).fillna(2)
+        df['silla_num'] = df[c_silla].apply(lambda x: 1 if 'sí' in str(x).lower() or 'si' in str(x).lower() else 0)
+        
+        # Variable Objetivo (Target)
+        df['label'] = df[c_target].apply(lambda x: 1 if 'sí' in str(x).lower() or 'si' in str(x).lower() else 0)
+        
+        # Limpieza de nulos antes de entrenar
         df_clean = df.dropna(subset=['imc_calc', 'nivel_estres', 'label'])
-        X = df_clean[['imc_calc', 'nivel_estres']]
+        
+        features = ['imc_calc', 'nivel_estres', 'genero_num', 'pausas_num', 'horas_num', 'silla_num']
+        X = df_clean[features]
         y = df_clean['label']
         
-        modelo = DecisionTreeClassifier(max_depth=3, min_samples_split=10, min_samples_leaf=5, random_state=42)
+        modelo = DecisionTreeClassifier(max_depth=5, random_state=42)
         modelo.fit(X, y)
-        return modelo
+        return modelo, len(df)
+
     except Exception as e:
-        st.error(f"Error al cargar datos: {e}")
-        return None
-
-# Inicializar el modelo globalmente
-modelo_ia = entrenar_modelo()
-
-if modelo_ia is not None:
-    # Usamos la misma URL que ya tienes arriba
-    url_datos = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQC0W8wtAAKG-qj0BppHi_Qu_LtuvjQ5pOCYDYQdRdwD01mCSjIH8tLn3-KyP8OnrYVEWXV2O4rrVmx/pub?gid=2099638101&single=true&output=csv"
-    df_temp = pd.read_csv(url_datos)
-    total_registros = len(df_temp)
+        st.error(f"Error detallado: {e}")
+        # Esto te ayudará a ver cómo está leyendo Pandas las columnas si vuelve a fallar
+        if 'df' in locals():
+            st.write("Columnas que la IA encontró en tu Excel:", list(df.columns))
+        return None, 0
     
-    # Esto lo muestra en la barra lateral de forma elegante
-    st.sidebar.info(f"📈 IA entrenada con {total_registros} registros actuales.")
-# ----------------------------------------------
-# --- SECCIÓN DE COLABORACIÓN ---
-st.sidebar.markdown("---")
-st.sidebar.subheader("🤝 Colabora con la IA")
-st.sidebar.write(
-    "Este modelo aprende de casos reales. ¿Te gustaría que tus datos "
-    "ayuden a mejorar la precisión de este asistente médico?"
-)
+modelo_ia, total_registros = entrenar_modelo()
 
-# El botón que lleva a tu formulario
-st.sidebar.link_button(
-    "Registrar mis datos en el estudio", 
-    "https://docs.google.com/forms/d/e/1FAIpQLScXVZ7iCF1nad67S8x2aNUK_c6v3hSRyTNT9K20m0MR-aETVg/viewform"
-)
-
-st.sidebar.caption("Nota: Los datos se recolectan de forma anónima.")
-
-# --- CONTADOR DE VISITAS MEJORADO ---
-st.sidebar.markdown("---")
-
-# Esto crea una métrica visualmente atractiva
-if 'visitas' not in st.session_state:
-    st.session_state.visitas = 1
-else:
-    st.session_state.visitas += 1
-
-st.sidebar.metric(label="👥 Consultas en esta sesión", value=st.session_state.visitas)
-st.sidebar.caption("Gracias por usar el asistente médico.")
-
-# --- 4. INTERFAZ DE USUARIO (DASHBOARD) ---
-st.title("🏥 Asistente de Salud Lumbar - IA")
+# --- 4. INTERFAZ DE USUARIO ---
+st.title("🏥 Asistente de Salud Lumbar - IA Multivariable")
 
 if modelo_ia is not None:
     with st.sidebar:
-        st.header("📋 Ingreso de Datos")
-        nombre_user = st.text_input("Nombre del Colaborador", "Roger_DMendoza")
+        # A. ESTADO DEL ENTRENAMIENTO
+        st.info(f"📈 IA entrenada con {total_registros} registros actuales.")
+        st.divider()
+
+        # B. INGRESO DE DATOS DEL USUARIO
+        st.header("📋 Datos del Colaborador")
+        nombre_user = st.text_input("Nombre completo", "su nombre aqui")
+        genero_input = st.selectbox("Género", ["Masculino", "Femenino", "Otro"])
         edad_user = st.number_input("Edad", 18, 90, 33)
         peso_user = st.number_input("Peso Actual (kg)", 30.0, 200.0, 75.8)
         talla_user = st.number_input("Estatura (cm)", 100, 250, 169)
+        
+        st.divider()
+        st.header("🏢 Entorno Laboral")
         estres_user = st.slider("Nivel de Estrés (1-5)", 1, 5, 3)
+        horas_input = st.selectbox("Horas sentado al día", ["1-4", "4-6", "6-8", "Más de 8"])
+        pausas_input = st.selectbox("Frecuencia de pausas activas", ["Nunca", "Ocasionalmente", "Diariamente"])
+        silla_input = st.radio("¿Su silla tiene soporte lumbar?", ["Sí", "No"])
 
-    # Cálculos de composición corporal (Simulación de báscula)
+        # Mapeos internos
+        genero_user = {"Masculino": 0, "Femenino": 1, "Otro": 2}[genero_input]
+        horas_user = {"1-4": 1, "4-6": 2, "6-8": 3, "Más de 8": 4}[horas_input]
+        pausas_user = {"Nunca": 0, "Ocasionalmente": 1, "Diariamente": 2}[pausas_input]
+        silla_user = 1 if silla_input == "Sí" else 0
+
+        st.divider()
+
+        # C. SESIÓN DE COLABORACIÓN
+        st.subheader("🤝 Colabora con la IA")
+        st.write("Tu experiencia ayuda a mejorar la precisión. Al hacer clic, serás redirigido a un formulario para aportar tus datos al estudio.")
+        st.link_button("Registrar mis datos en el estudio", 
+                      "https://docs.google.com/forms/d/e/1FAIpQLScXVZ7iCF1nad67S8x2aNUK_c6v3hSRyTNT9K20m0MR-aETVg/viewform")
+        st.caption("Nota: La recolección es 100% anónima.")
+
+        st.divider()
+
+        # D. CONTADOR DE VISITAS
+        if 'visitas' not in st.session_state:
+            st.session_state.visitas = 1
+        else:
+            st.session_state.visitas += 1
+        st.metric(label="👥 Consultas en esta sesión", value=st.session_state.visitas)
+
+    # --- DASHBOARD PRINCIPAL ---
     imc_user = peso_user / ((talla_user/100)**2)
-    agua_user = peso_user * 0.55
-    prot_user = peso_user * 0.17
-    hueso_user = peso_user * 0.04
+    agua_user, prot_user, hueso_user = peso_user * 0.55, peso_user * 0.17, peso_user * 0.04
 
-    # Mostrar Métricas principales
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("IMC", f"{imc_user:.2f}")
-    col2.metric("Agua 💧", f"{agua_user:.1f}kg")
-    col3.metric("Proteína 🥩", f"{prot_user:.1f}kg")
-    col4.metric("Huesos 🦴", f"{hueso_user:.1f}kg")
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("IMC", f"{imc_user:.2f}")
+    c2.metric("Agua 💧", f"{agua_user:.1f}kg")
+    c3.metric("Proteína 🥩", f"{prot_user:.1f}kg")
+    c4.metric("Huesos 🦴", f"{hueso_user:.1f}kg")
 
     st.divider()
 
-    # Botón de Diagnóstico
-    if st.button("🔍 ANALIZAR RIESGO Y GENERAR PDF"):
-        # Predicción
-        prediccion = modelo_ia.predict([[imc_user, estres_user]])
-        probabilidad = modelo_ia.predict_proba([[imc_user, estres_user]])
+    if st.button("🔍 ANALIZAR RIESGO Y GENERAR REPORTE"):
+        datos_entrada = [[imc_user, estres_user, genero_user, pausas_user, horas_user, silla_user]]
+        pred = modelo_ia.predict(datos_entrada)
+        prob = max(modelo_ia.predict_proba(datos_entrada)[0]) * 100
+        riesgo = "ALTO" if pred[0] == 1 else "BAJO"
         
-        riesgo_final = "ALTO" if prediccion[0] == 1 else "BAJO"
-        confianza = max(probabilidad[0]) * 100
-        
-        # Mostrar resultado en pantalla
-        if riesgo_final == "ALTO":
-            st.error(f"### RESULTADO: RIESGO {riesgo_final}")
+        if riesgo == "ALTO":
+            st.error(f"### DIAGNÓSTICO: RIESGO {riesgo}")
         else:
-            st.success(f"### RESULTADO: RIESGO {riesgo_final}")
-            
-        st.info(f"Confianza del algoritmo: {confianza:.1f}%")
-
-        # Recomendaciones
-        recomendaciones = [
-            "Realizar pausas activas cada 45 minutos.",
-            "Ajustar la altura del monitor a la línea de los ojos.",
-            "Utilizar soporte lumbar en la silla de oficina."
-        ]
-        if imc_user > 25:
-            recomendaciones.append("Se sugiere valoración nutricional para control de peso.")
-
-        # Generar y habilitar descarga de PDF
-        pdf_data = crear_pdf(nombre_user, edad_user, imc_user, riesgo_final, confianza, agua_user, prot_user, hueso_user, recomendaciones)
+            st.success(f"### DIAGNÓSTICO: RIESGO {riesgo}")
         
-        st.download_button(
-            label="📄 Descargar Informe PDF",
-            data=pdf_data,
-            file_name=f"Informe_Salud_{nombre_user}.pdf",
-            mime="application/pdf"
-        )
-else:
-    st.warning("No se pudo cargar el modelo. Verifica tu conexión o el archivo de datos.")
+        st.write(f"**Confianza del modelo:** {prob:.1f}%")
+
+        recomendaciones = ["Realizar pausas activas cada 45 minutos.", "Ajustar pantalla a nivel de ojos."]
+        if silla_user == 0: recomendaciones.append("Se recomienda adquirir un soporte lumbar ergonómico.")
+        if horas_user >= 3: recomendaciones.append("Riesgo elevado por sedentarismo prolongado.")
+        if imc_user > 25: recomendaciones.append("Considerar programa de nutrición.")
+
+        pdf_data = crear_pdf(nombre_user, edad_user, imc_user, riesgo, prob, agua_user, prot_user, hueso_user, recomendaciones)
+        st.download_button(label="📄 Descargar Informe PDF", data=pdf_data, file_name=f"Salud_{nombre_user}.pdf", mime="application/pdf")
