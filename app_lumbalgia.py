@@ -184,6 +184,10 @@ if modelo_ia is not None:
         pred = modelo_ia.predict(datos_entrada)
         prob = max(modelo_ia.predict_proba(datos_entrada)[0]) * 100
         riesgo = "ALTO" if pred[0] == 1 else "BAJO"
+
+        # Inicializamos la variable para evitar el NameError
+        texto_urgencia = ""
+        recomendaciones = []
         
         if riesgo == "ALTO":
             # Determinamos el nivel de urgencia dentro del riesgo alto
