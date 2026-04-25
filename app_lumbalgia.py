@@ -186,16 +186,22 @@ if modelo_ia is not None:
         riesgo = "ALTO" if pred[0] == 1 else "BAJO"
         
         if riesgo == "ALTO":
+            # Si el riesgo es alto y además tiene estrés 5 o más de 8 horas sentado
+            if estres_user >= 4 or horas_user >= 3:
+                urgencia = "🔴 ALTA PRIORIDAD: Intervención necesaria en el corto plazo (próximos 30 días) para evitar cronicidad."
+            else:
+                urgencia = "🟠 PRIORIDAD MEDIA: Se recomienda realizar ajustes en los próximos 3 meses."
+            
             st.error(f"### DIAGNÓSTICO: RIESGO {riesgo}")
+            st.warning(urgencia)
+            recomendaciones.append(urgencia)
         else:
-            st.success(f"### DIAGNÓSTICO: RIESGO {riesgo}")
-        
-        st.write(f"**Confianza del modelo:** {prob:.1f}%")
+            recomendaciones.append("🟢 MANTENIMIENTO: Siga sus hábitos actuales y realice chequeos preventivos semestrales.")
 
-        recomendaciones = ["Realizar pausas activas cada 45 minutos.", "Ajustar pantalla a nivel de ojos."]
-        if silla_user == 0: recomendaciones.append("Se recomienda adquirir un soporte lumbar ergonómico.")
-        if horas_user >= 3: recomendaciones.append("Riesgo elevado por sedentarismo prolongado.")
-        if imc_user > 25: recomendaciones.append("Considerar programa de nutrición.")
+        # Recomendaciones específicas
+        recomendaciones.append("Realizar pausas activas cada 45 minutos (estiramientos de cadena posterior).")
+        if silla_user == 0: recomendaciones.append("Adquirir un soporte lumbar o cojín ergonómico para corregir la lordosis.")
+        if imc_user > 25: recomendaciones.append("Valoración nutricional: el exceso de peso aumenta la presión intradiscal.")
 
         pdf_data = crear_pdf(nombre_user, edad_user, imc_user, riesgo, prob, agua_user, prot_user, hueso_user, recomendaciones)
         st.download_button(label="📄 Descargar Informe PDF", data=pdf_data, file_name=f"Salud_{nombre_user}.pdf", mime="application/pdf")
