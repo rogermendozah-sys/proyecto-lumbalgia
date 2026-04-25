@@ -11,7 +11,7 @@ st.set_page_config(page_title="Asistente Salud Lumbar", page_icon="🏥")
 @st.cache_data(ttl=600)
 def cargar_datos():
     # Reemplaza con tu URL real de Google Sheets (formato export?format=csv)
-    sheet_url = "TU_URL_DE_GOOGLE_SHEETS_AQUÍ"
+    sheet_url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQC0W8wtAAKG-qj0BppHi_Qu_LtuvjQ5pOCYDYQdRdwD01mCSjIH8tLn3-KyP8OnrYVEWXV2O4rrVmx/pubhtml?gid=2099638101&single=true"
     df = pd.read_csv(sheet_url)
     return df
 
