@@ -186,17 +186,23 @@ if modelo_ia is not None:
         riesgo = "ALTO" if pred[0] == 1 else "BAJO"
         
         if riesgo == "ALTO":
-            # Si el riesgo es alto y además tiene estrés 5 o más de 8 horas sentado
+            # Determinamos el nivel de urgencia dentro del riesgo alto
             if estres_user >= 4 or horas_user >= 3:
-                urgencia = "🔴 ALTA PRIORIDAD: Intervención necesaria en el corto plazo (próximos 30 días) para evitar cronicidad."
+                texto_urgencia = "🔴 ALTA PRIORIDAD: Intervención necesaria en el corto plazo (próximos 30 días) para evitar cronicidad."
+                st.error(f"### DIAGNÓSTICO: RIESGO {riesgo}")
+                st.error(texto_urgencia) # Rojo para alta prioridad
             else:
-                urgencia = "🟠 PRIORIDAD MEDIA: Se recomienda realizar ajustes en los próximos 3 meses."
+                texto_urgencia = "🟠 PRIORIDAD MEDIA: Se recomienda realizar ajustes en los próximos 3 meses."
+                st.error(f"### DIAGNÓSTICO: RIESGO {riesgo}")
+                st.warning(texto_urgencia) # Naranja para prioridad media
             
-            st.error(f"### DIAGNÓSTICO: RIESGO {riesgo}")
-            st.warning(urgencia)
-            recomendaciones.append(urgencia)
+            recomendaciones.append(texto_urgencia)
         else:
-            recomendaciones.append("🟢 MANTENIMIENTO: Siga sus hábitos actuales y realice chequeos preventivos semestrales.")
+            # Para riesgo bajo, no hay "urgencia", hay "mantenimiento"
+            st.success(f"### DIAGNÓSTICO: RIESGO {riesgo}")
+            texto_mantenimiento = "🟢 MANTENIMIENTO: Siga sus hábitos actuales y realice chequeos preventivos semestrales."
+            st.info(texto_mantenimiento)
+            recomendaciones.append(texto_mantenimiento)
 
         # Recomendaciones específicas
         recomendaciones.append("Realizar pausas activas cada 45 minutos (estiramientos de cadena posterior).")
