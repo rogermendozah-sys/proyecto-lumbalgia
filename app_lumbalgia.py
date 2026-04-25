@@ -59,7 +59,7 @@ def crear_pdf(nombre, edad, imc, riesgo, prob, agua, proteina, huesos, consejos)
     return pdf.output(dest='S').encode('latin-1')
 
 # --- 3. ENTRENAMIENTO DEL MODELO (CRISP-DM) ---
-@st.cache_data
+@st.cache_data(ttl=600)
 def entrenar_modelo():
     try:
         url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQC0W8wtAAKG-qj0BppHi_Qu_LtuvjQ5pOCYDYQdRdwD01mCSjIH8tLn3-KyP8OnrYVEWXV2O4rrVmx/pub?gid=2099638101&single=true&output=csv"
@@ -106,7 +106,7 @@ def entrenar_modelo():
         X = df_clean[features]
         y = df_clean['label']
         
-        modelo = DecisionTreeClassifier(max_depth=5, random_state=42)
+        modelo = DecisionTreeClassifier(max_depth=3, min_samples_split=10, min_samples_leaf=5, random_state=42)
         modelo.fit(X, y)
         return modelo, len(df)
 
